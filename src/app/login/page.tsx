@@ -1,9 +1,10 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState ,useEffect} from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { SubmitHandler, useForm } from 'react-hook-form';
+import { signIn } from 'next-auth/react';
 
 import KaKaoIcon from '../../../public/images/KaKaoIcon.svg';
 import GoogleIcon from '../../../public/images/GoogleIcon.svg';
@@ -26,41 +27,69 @@ export default function LoginPage() {
   });
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  useEffect(() => {
+    const isOauth = searchParams.get('oauth');
+    const status = searchParams.get('status');
+
+    if (isOauth === 'true' && status === 'success') {
+      handleOauthCallback();
+    }
+  }, [searchParams]);
 
   const togglePasswordVisibility = (): void => {
     setShowPassword((prev) => !prev);
   };
 
+  //기본 로그인
   const onSubmit: SubmitHandler<LoginForm> = async (data) => {
     try {
-      console.log('로그인', data.email, data.password);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_CALOG_API_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-        body: JSON.stringify(data),
+      const result = await signIn('credentials', {
+        email: data.email,
+        password: data.password,
+        redirect: false,
       });
 
-      if (!response.ok) {
-        throw new Error('로그인 실패');
+      if (result?.error) {
+        throw new Error(result.error);
       }
 
-      const result = await response.json();
-      const { email, accessToken } = result;
-
-      useAuthStore.getState().login(email, accessToken);
-      router.push("/")
+      if (result?.ok) {
+        router.push("/");
+      }
     } catch (err) {
       console.error('로그인 에러', err);
       throw new Error('로그인 실패');
     }
   };
 
+  //Oauth 로그인
   const handleOAuthLogin = async (provider: string) => {
-    window.location.href = `http://localhost:5000/api/auth/${provider}`
+    console.log(process.env.NEXT_PUBLIC_CALOG_API_URL);
+    window.location.href = `${process.env.NEXT_PUBLIC_CALOG_API_URL}/api/auth/${provider}`
   };
+
+  //Oauth 로그인 이후 콜백 -- 이게 성립하려면 백엔드에서 리다이렉션할때 쿼리 파라미터로 oauth= true를 줘야함 status==success도 주고 
+  const handleOauthCallback = async () => {
+    try {
+      const result = await signIn('oauth', {
+        redirect: false,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      if (result?.ok) {
+        router.push("/");
+      }
+    } catch (err) {
+      console.error('OAuth 로그인 액세스 재발급 에러', err);
+      throw new Error('OAuth 로그인 액세스 재발급 실패');
+    }
+  }
 
   return (
     <section className="w-full h-screen flex items-center justify-center bg-gray-100 p-4 overflow-y-auto">
@@ -106,7 +135,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={togglePasswordVisibility}
-                className="absolute inset-y-11 right-3 flex items-center justify-center text-gray-500 h-[50px]">
+                className="absolute inset-y-11 right-3 flex items-center justify-center text-gray-500 h-[42px]">
                 <Image src={showPassword ? "/images/eyes-open.svg" : "/images/eyes.svg"} alt={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"} width={24} height={24} />
               </button>
             </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Providers } from '@/components/Providers';
 import '@/style/globals.css';
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <div id="modal" />
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
